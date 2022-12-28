@@ -1,8 +1,51 @@
 #!/bin/bash
 export DISPLAY=:99
 export XAUTHORITY=${DATA_DIR}/.Xauthority
-CUR_V=""
-LAT_V="$(wget -qO- https://api.github.com/repos/TheTorProject/gettorbrowser/releases | jq -r '.[].tag_name' | grep "linux64-" | cut -d '-' -f2)"
+CUR_V="$(find ${DATA_DIR} -maxdepth 1 -type f -name "Tor-Version-*" | cut -d '-' -f3 | sed 's/\.tar\.xz//g')"
+if [ "${TOR_V}" == "latest" ]; then
+	LAT_V="$(wget -qO- https://api.github.com/repos/TheTorProject/gettorbrowser/releases | jq -r '.[].tag_name' | grep "linux64-" | cut -d '-' -f2)"
+	if [ -z "$LAT_V" ]; then
+		if [ ! -z "$CUR_V" ]; then
+			echo "---Can't get latest version of Tor-Browser falling back to v$CUR_V---"
+			LAT_V="$CUR_V"
+		else
+			echo "---Something went wrong, can't get latest version of Tor-Browser, putting container into sleep mode---"
+			sleep infinity
+		fi
+	fi
+fi
+
+echo "---Version Check---"
+if [ -z "$CUR_V" ]; then
+	echo "---Tor-Browser not installed, installing---"
+	cd ${DATA_DIR}
+	if wget -q -nc --show-progress --progress=bar:force:noscroll -O ${DATA_DIR}/Tor-Browser-${LAT_V}.tar.xz "https://github.com/TheTorProject/gettorbrowser/releases/download/linux64-${LAT_V}/tor-browser-linux64-${LAT_V}_ALL.tar.xz" ; then
+		echo "---Sucessfully downloaded Tor-Browser---"
+	else
+		echo "---Something went wrong, can't download Tor-Browser, putting container in sleep mode---"
+		rm -f ${DATA_DIR}/Tor-Browser-${LAT_V}.tar.xz
+		sleep infinity
+	fi
+	tar -C ${DATA_DIR} --strip-components=2 -xf ${DATA_DIR}/Tor-Browser-${LAT_V}.tar.xz
+	rm -f ${DATA_DIR}/Tor-Browser-${LAT_V}.tar.xz
+	touch ${DATA_DIR}/Tor-Version-${LAT_V}
+elif [ "$CUR_V" != "$LAT_V" ]; then
+	echo "---Version missmatch, installed v$CUR_V, downloading and installing latest v$LAT_V...---"
+    cd ${DATA_DIR}
+	rm -rf ${DATA_DIR}/Tor-Version-*
+	find . -maxdepth 1 ! -name profile ! -name .vnc -exec rm -rf {} \; 2>/dev/null
+	if wget -q -nc --show-progress --progress=bar:force:noscroll -O ${DATA_DIR}/Tor-Browser-${LAT_V}.tar.xz "https://github.com/TheTorProject/gettorbrowser/releases/download/linux64-${LAT_V}/tor-browser-linux64-${LAT_V}_ALL.tar.xz" ; then
+		echo "---Sucessfully downloaded Tor-Browser---"
+	else
+		echo "---Something went wrong, can't download Tor-Browser, putting container in sleep mode---"
+		rm -f ${DATA_DIR}/Tor-Browser-${LAT_V}.tar.xz
+		sleep infinity
+	fi
+	tar -C ${DATA_DIR} --strip-components=1 -xf ${DATA_DIR}/Firefox-$LAT_V-$FIREFOX_LANG.tar.bz2
+	rm -R ${DATA_DIR}/Firefox-$LAT_V-$FIREFOX_LANG.tar.bz2
+elif [ "$CUR_V" == "$LAT_V" ]; then
+	echo "---Tor-Browser v$CUR_V up-to-date---"
+fi
 
 
 echo "---Preparing Server---"
@@ -50,4 +93,4 @@ sleep infinity
 
 echo "---Starting Tor-Browser---"
 cd ${DATA_DIR}
-${DATA_DIR}
+${DATA_DIR}/start-tor-browser --display=:99 --P ${USER} --setDefaultBrowser ${EXTRA_PARAMETERS}
