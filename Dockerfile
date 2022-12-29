@@ -12,7 +12,7 @@ RUN export TZ=Europe/Rome && \
 	echo "ja_JP.UTF-8 UTF-8" >> /etc/locale.gen && \
 	locale-gen && \
 	rm -rf /var/lib/apt/lists/* && \
-	sed -i '/    document.title =/c\    document.title = "Tor - noVNC";' /usr/share/novnc/app/ui.js && \
+	sed -i '/    document.title =/c\    document.title = "Tor Browser - noVNC";' /usr/share/novnc/app/ui.js && \
 	rm /usr/share/novnc/app/images/icons/*
 
 ENV DATA_DIR=/torbrowser
