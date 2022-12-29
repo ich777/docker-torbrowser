@@ -1,21 +1,28 @@
 #!/bin/bash
 export DISPLAY=:99
 export XAUTHORITY=${DATA_DIR}/.Xauthority
-CUR_V="$(find ${DATA_DIR} -maxdepth 1 -type f -name "Tor-Version-*" | cut -d '-' -f3 | sed 's/\.tar\.xz//g')"
-if [ "${TOR_V}" == "latest" ]; then
-	LAT_V="$(wget -qO- https://api.github.com/repos/TheTorProject/gettorbrowser/releases | jq -r '.[].tag_name' | grep "linux64-" | cut -d '-' -f2)"
-	if [ -z "$LAT_V" ]; then
-		if [ ! -z "$CUR_V" ]; then
-			echo "---Can't get latest version of Tor-Browser falling back to v$CUR_V---"
-			LAT_V="$CUR_V"
-		else
-			echo "---Something went wrong, can't get latest version of Tor-Browser, putting container into sleep mode---"
+
+CUR_V="$(cat ${DATA_DIR}/application.ini | grep -E "^Version=[0-9].*" | cut -d '=' -f2)"
+if [ -z "$CUR_V" ]; then
+	if [ "${TOR_V}" == "latest" ]; then
+		LAT_V="12.0.1"
+	else
+		LAT_V="$TOR_V"
+	fi
+else
+	if [ "${TOR_V}" == "latest" ]; then
+		LAT_V="$CUR_V"
+		if [ -z "$LAT_V" ]; then
+			echo "Something went horribly wrong with version detection, putting container into sleep mode..."
 			sleep infinity
 		fi
+	else
+		LAT_V="$TOR_V"
 	fi
 fi
 
-echo "---Version Check---"
+rm ${DATA_DIR}/Tor-Browser-*.tar.xz 2>/dev/null
+
 if [ -z "$CUR_V" ]; then
 	echo "---Tor-Browser not installed, installing---"
 	cd ${DATA_DIR}
@@ -28,12 +35,11 @@ if [ -z "$CUR_V" ]; then
 	fi
 	tar -C ${DATA_DIR} --strip-components=2 -xf ${DATA_DIR}/Tor-Browser-${LAT_V}.tar.xz
 	rm -f ${DATA_DIR}/Tor-Browser-${LAT_V}.tar.xz
-	touch ${DATA_DIR}/Tor-Version-${LAT_V}
 elif [ "$CUR_V" != "$LAT_V" ]; then
 	echo "---Version missmatch, installed v$CUR_V, downloading and installing latest v$LAT_V...---"
     cd ${DATA_DIR}
-	rm -rf ${DATA_DIR}/Tor-Version-*
-	find . -maxdepth 1 ! -name profile ! -name .vnc -exec rm -rf {} \; 2>/dev/null
+	mkdir -p /tmp/profile
+	cp -R ${DATA_DIR}/TorBrowser/Data/Browser /tmp/profile/
 	if wget -q -nc --show-progress --progress=bar:force:noscroll -O ${DATA_DIR}/Tor-Browser-${LAT_V}.tar.xz "https://github.com/TheTorProject/gettorbrowser/releases/download/linux64-${LAT_V}/tor-browser-linux64-${LAT_V}_ALL.tar.xz" ; then
 		echo "---Sucessfully downloaded Tor-Browser---"
 	else
@@ -41,15 +47,14 @@ elif [ "$CUR_V" != "$LAT_V" ]; then
 		rm -f ${DATA_DIR}/Tor-Browser-${LAT_V}.tar.xz
 		sleep infinity
 	fi
-	tar -C ${DATA_DIR} --strip-components=1 -xf ${DATA_DIR}/Firefox-$LAT_V-$FIREFOX_LANG.tar.bz2
-	rm -R ${DATA_DIR}/Firefox-$LAT_V-$FIREFOX_LANG.tar.bz2
-elif [ "$CUR_V" == "$LAT_V" ]; then
-	echo "---Tor-Browser v$CUR_V up-to-date---"
+	tar -C ${DATA_DIR} --strip-components=2 -xf ${DATA_DIR}/Tor-Browser-${LAT_V}.tar.xz
+	rm -rf ${DATA_DIR}/TorBrowser/Data/Browser
+	cp -R /tmp/profile/Browser ${DATA_DIR}/TorBrowser/Data/
+	rm -f ${DATA_DIR}/Tor-Browser-${LAT_V}.tar.xz
+	rm -rf /tmp/profile
 fi
 
-
 echo "---Preparing Server---"
-
 echo "---Resolution check---"
 if [ -z "${CUSTOM_RES_W} ]; then
 	CUSTOM_RES_W=1024
@@ -88,8 +93,6 @@ sleep 2
 echo "---Starting noVNC server---"
 websockify -D --web=/usr/share/novnc/ --cert=/etc/ssl/novnc.pem ${NOVNC_PORT} localhost:${RFB_PORT}
 sleep 2
-
-sleep infinity
 
 echo "---Starting Tor-Browser---"
 cd ${DATA_DIR}
