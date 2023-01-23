@@ -3,11 +3,9 @@ export DISPLAY=:99
 export XAUTHORITY=${DATA_DIR}/.Xauthority
 
 LAT_V="$(wget -qO- https://api.github.com/repos/TheTorProject/gettorbrowser/releases | jq -r '.[].tag_name' | grep "linux64-" | cut -d '-' -f2)"
-CUR_V="$(cat ${DATA_DIR}/application.ini | grep -E "^Version=[0-9].*" | cut -d '=' -f2)"
+CUR_V="$(cat ${DATA_DIR}/application.ini 2>/dev/null | grep -E "^Version=[0-9].*" | cut -d '=' -f2)"
 if [ -z "$CUR_V" ]; then
-	if [ "${TOR_V}" == "latest" ]; then
-		LAT_V="12.0.1"
-	else
+	if [ "${TOR_V}" != "latest" ]; then
 		LAT_V="$TOR_V"
 	fi
 else
