@@ -4,13 +4,17 @@ export XAUTHORITY=${DATA_DIR}/.Xauthority
 
 CUR_V=$(${DATA_DIR}/firefox --version 2>/dev/null | grep -E "^[0-9]*")
 
+if [[ "$CUR_V" == *" 102.13"* ]]; then
+  unset CUR_V
+fi
+
 rm ${DATA_DIR}/Tor-Browser-*.tar.xz 2>/dev/null
 
 if [ -z "$CUR_V" ]; then
-  LAT_V="$(wget -qO- https://api.github.com/repos/TheTorProject/gettorbrowser/releases | jq -r '.[].tag_name' | grep "linux64-" | cut -d '-' -f2)"
+  DL_URL="$(wget -qO- https://aus1.torproject.org/torbrowser/update_3/release/downloads.json | jq -r '.downloads."linux-x86_64".ALL.binary')"
   echo "---Tor-Browser not installed, installing---"
   cd ${DATA_DIR}
-  if wget -q -nc --show-progress --progress=bar:force:noscroll -O ${DATA_DIR}/Tor-Browser-${LAT_V}.tar.xz "https://github.com/TheTorProject/gettorbrowser/releases/download/linux64-${LAT_V}/tor-browser-linux64-${LAT_V}_ALL.tar.xz" ; then
+  if wget -q -nc --show-progress --progress=bar:force:noscroll -O ${DATA_DIR}/Tor-Browser-${LAT_V}.tar.xz "${DL_URL}" ; then
     echo "---Sucessfully downloaded Tor-Browser---"
   else
     echo "---Something went wrong, can't download Tor-Browser, putting container in sleep mode---"
